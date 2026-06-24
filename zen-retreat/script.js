@@ -1,3 +1,13 @@
+/* ── Strip tracking params ── */
+(function(){
+  const u = new URL(location.href);
+  const tp = ['fbclid','utm_source','utm_medium','utm_campaign','utm_content','utm_term','utm_id','gclid','mc_eid','igshid'];
+  let dirty = false;
+  tp.forEach(p => { if(u.searchParams.has(p)){ u.searchParams.delete(p); dirty=true; } });
+  [...u.searchParams.keys()].forEach(k => { if(/^(fb_|aem_)/.test(k)){ u.searchParams.delete(k); dirty=true; } });
+  if(dirty) history.replaceState({}, '', u.search ? u.toString() : u.origin + u.pathname);
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   // --- GSAP Animations ---
   gsap.registerPlugin(ScrollTrigger);
