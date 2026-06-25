@@ -8,136 +8,132 @@
   if(dirty) history.replaceState({}, '', u.search ? u.toString() : u.origin + u.pathname);
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
-  // --- GSAP Animations ---
-  gsap.registerPlugin(ScrollTrigger);
+/* ── Mobile detection (shared with HTML loader) ── */
+var isMobile = window.innerWidth < 768;
 
-  // Hero Pin & Scale Effect
-  gsap.to('.js-scale-hero', {
-    scale: 1.15,
-    ease: "none",
-    scrollTrigger: {
-      trigger: "#hero",
-      start: "top top",
-      end: "bottom top",
-      scrub: true
-    }
-  });
+/* ── Animations (runs after DOM + scripts are ready) ── */
+function initAnimations() {
 
-  ScrollTrigger.create({
-    trigger: "#hero",
-    start: "top top",
-    end: "bottom top",
-    pin: ".js-pin-hero",
-    pinSpacing: false // Concept section will slide over it
-  });
+  if (!isMobile && typeof gsap !== 'undefined') {
+    /* ── Desktop: full GSAP ── */
+    gsap.registerPlugin(ScrollTrigger);
 
-  // Parallax Images
-  const parallaxImages = document.querySelectorAll('.js-parallax');
-  parallaxImages.forEach(img => {
-    gsap.to(img, {
-      yPercent: 15, // Move image down 15% relative to its container as we scroll
-      ease: "none",
-      scrollTrigger: {
-        trigger: img.parentElement,
-        start: "top bottom", 
-        end: "bottom top",
-        scrub: true
-      }
+    // Hero Pin & Scale
+    gsap.to('.js-scale-hero', {
+      scale: 1.15, ease: 'none',
+      scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true }
     });
-  });
-
-  // Internal Image Parallax (Elegant motion)
-  const internalParallax = document.querySelectorAll('.js-internal-parallax');
-  internalParallax.forEach(img => {
-    gsap.to(img, {
-      yPercent: -15, // Move image slightly upwards inside its container
-      ease: "none",
-      scrollTrigger: {
-        trigger: img.parentElement,
-        start: "top bottom",
-        end: "bottom top",
-        scrub: true
-      }
+    ScrollTrigger.create({
+      trigger: '#hero', start: 'top top', end: 'bottom top',
+      pin: '.js-pin-hero', pinSpacing: false
     });
-  });
 
-  // Fade Up Elements
-  const fadeElements = document.querySelectorAll('.js-fade');
-  fadeElements.forEach(el => {
-    gsap.from(el, {
-      y: 40,
-      opacity: 0,
-      duration: 1.2,
-      ease: "power3.out",
-      scrollTrigger: {
-        trigger: el,
-        start: "top 85%",
-        toggleActions: "play none none reverse"
-      }
+    // Parallax images
+    document.querySelectorAll('.js-parallax').forEach(img => {
+      gsap.to(img, {
+        yPercent: 15, ease: 'none',
+        scrollTrigger: { trigger: img.parentElement, start: 'top bottom', end: 'bottom top', scrub: true }
+      });
     });
-  });
+    document.querySelectorAll('.js-internal-parallax').forEach(img => {
+      gsap.to(img, {
+        yPercent: -15, ease: 'none',
+        scrollTrigger: { trigger: img.parentElement, start: 'top bottom', end: 'bottom top', scrub: true }
+      });
+    });
 
-  // --- Reservation Modal Logic ---
-  const openBtn = document.getElementById('open-reserve');
+    // Fade-up
+    document.querySelectorAll('.js-fade').forEach(el => {
+      gsap.from(el, {
+        y: 40, opacity: 0, duration: 1.2, ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none reverse' }
+      });
+    });
+    document.querySelectorAll('.js-fade-hero').forEach(el => {
+      gsap.from(el, { y: 20, opacity: 0, duration: 1.5, delay: 0.3, ease: 'power3.out' });
+    });
+
+  } else {
+    /* ── Mobile: lightweight IntersectionObserver ── */
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+
+    document.querySelectorAll('.js-fade').forEach(el => {
+      el.style.cssText += 'opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease;';
+      io.observe(el);
+    });
+    document.querySelectorAll('.js-fade-hero').forEach(el => {
+      el.style.opacity = '1';
+    });
+  }
+}
+
+/* ── Modal ── */
+function initModal() {
+  const openBtn  = document.getElementById('open-reserve');
   const closeBtn = document.getElementById('close-reserve');
-  const modal = document.getElementById('reserve-modal');
+  const modal    = document.getElementById('reserve-modal');
+  if (!openBtn || !modal) return;
 
-  const openModal = () => {
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden'; // Prevent scrolling
-  };
+  const open  = () => { modal.classList.add('active'); document.body.style.overflow = 'hidden'; };
+  const close = () => { modal.classList.remove('active'); document.body.style.overflow = ''; };
 
-  const closeModal = () => {
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-  };
+  openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+}
 
-  openBtn.addEventListener('click', openModal);
-  closeBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
-  });
-
-  // --- Flatpickr (Date Selection) ---
-  const dateInput = document.getElementById('date-picker');
-  const priceDisplay = document.getElementById('total-price');
+/* ── Date picker + price ── */
+function initDatePicker() {
+  const dateInput   = document.getElementById('date-picker');
+  const priceDisplay= document.getElementById('total-price');
   const guestSelect = document.getElementById('guest-count');
-
-  const basePricePerPersonPerNight = 11000;
-
-  const calculatePrice = (dates, guests) => {
-    if (dates.length < 2) {
-      priceDisplay.textContent = '¥0';
-      return;
-    }
-    // Calculate nights
-    const start = dates[0];
-    const end = dates[1];
-    const timeDiff = end.getTime() - start.getTime();
-    const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    
-    // 11000 JPY * guests * nights
-    const total = nights * parseInt(guests) * basePricePerPersonPerNight;
-    
-    priceDisplay.textContent = `¥${total.toLocaleString()}`;
-  };
+  const planSelect  = document.getElementById('plan-select');
+  if (!dateInput) return;
 
   let selectedDates = [];
 
-  flatpickr(dateInput, {
-    mode: "range",
-    minDate: "today",
-    dateFormat: "Y/m/d",
-    showMonths: 1,
-    onChange: function(selectedDatesArr) {
-      selectedDates = selectedDatesArr;
-      calculatePrice(selectedDates, guestSelect.value);
-    }
-  });
+  const PLANS = {
+    'normal':   { label: '¥80,000 / 泊', calc: (n) => `¥${(80000 * n).toLocaleString()}` },
+    'eth':      { label: '0.1 ETH / 泊',  calc: (n) => `${(0.1 * n).toFixed(1)} ETH` },
+    'free':     { label: '無料',           calc: (n) => n > 0 ? '¥0 — 無料' : '¥0' },
+  };
 
-  guestSelect.addEventListener('change', (e) => {
-    calculatePrice(selectedDates, e.target.value);
-  });
+  const updatePrice = () => {
+    if (!priceDisplay) return;
+    if (selectedDates.length < 2) { priceDisplay.textContent = '—'; return; }
+    const nights = Math.ceil((selectedDates[1] - selectedDates[0]) / 86400000);
+    const plan   = planSelect ? planSelect.value : 'normal';
+    priceDisplay.textContent = PLANS[plan] ? PLANS[plan].calc(nights) : `¥${(80000 * nights).toLocaleString()}`;
+  };
 
-});
+  if (typeof flatpickr !== 'undefined') {
+    flatpickr(dateInput, {
+      mode: 'range', minDate: 'today', dateFormat: 'Y/m/d', showMonths: 1,
+      onChange(dates) { selectedDates = dates; updatePrice(); }
+    });
+  }
+
+  if (guestSelect) guestSelect.addEventListener('change', updatePrice);
+  if (planSelect)  planSelect.addEventListener('change', updatePrice);
+}
+
+/* ── Init ── */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    initAnimations();
+    initModal();
+    initDatePicker();
+  });
+} else {
+  initAnimations();
+  initModal();
+  initDatePicker();
+}
